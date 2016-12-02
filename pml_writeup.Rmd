@@ -1,0 +1,105 @@
+---
+title: "PracticalMachineLearningWriteUp"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Background
+
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement - a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, your goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. More information is available from the website here: http://groupware.les.inf.puc-rio.br/har (see the section on the Weight Lifting Exercise Dataset).
+
+## Data
+
+The training data for this project are available here:
+
+https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv
+
+The test data are available here:
+
+https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv
+
+
+The data for this project come from this source: http://groupware.les.inf.puc-rio.br/har. If you use the document you create for this class for any purpose please cite them as they have been very generous in allowing their data to be used for this kind of assignment.
+
+
+## Data Loading and Cleaning
+
+Loading the training and test data, as the data contain "NA", "#DIV/0!" and empty spaces, they will be substituted by "NA"
+```{r Data Loading}
+setwd("~/PracticalMachineLearning")
+training_data <- read.csv("pml-training.csv", header=T, na.strings=c("NA", "#DIV/0!",""))
+test_data <- read.csv("pml-testing.csv", header=T, na.string=c("NA", "#DIV/0!",""))
+```
+
+A quick look of the variable must be predicted "classe" is taken regarding to the user.
+```{r Data Inspection}
+prop.table(table(training_data$user_name, training_data$classe), 1)
+```
+
+For predicting the variable classe, only the first 7 columns are going to be used
+```{r Data Cleaning}
+selected_training_data <- training_data[,-c(1:7)]
+clean_training_data <- selected_training_data[, apply(selected_training_data, 2, function(x) !any(is.na(x)))] 
+#Dimensions of the clean training data 
+dim(clean_training_data)
+
+selected_test_data <- test_data[,-c(1:7)]
+clean_test_data <- selected_test_data[, apply(selected_test_data, 2, function(x) !any(is.na(x)))] 
+#Dimensions of the clean training data 
+dim(clean_test_data)
+```
+
+
+## Data Partitioning
+Training dataset is split into two for cross validation purposes. Two subsamples are going to be randomly genereated 70% of the set for training purposes and the rest 30% will be used only for cross validation and accuracy measurement.
+
+Caret Library loading
+```{r caret library, echo=FALSE}
+library(caret)
+```
+
+Partitioning the data in 70% (model) and 30% (cross validation)
+```{r data partitioning}
+set.seed(123456)
+inPartition <- createDataPartition(y=clean_training_data$classe, p=0.70,list=F)
+model_training_data<- clean_training_data[inPartition,] 
+crossval_training_data <-clean_training_data[-inPartition,] 
+
+#Training model set dimensions
+dim(model_training_data)
+#Cross validation model set dimensions
+dim(crossval_training_data)
+```
+
+## ML algorithms
+
+### Random Forest
+```{r random forest library, echo=FALSE}
+library(randomForest)
+```
+
+### Model Fitting
+```{r random forest model fitting, echo=FALSE}
+random_forest_model <- randomForest(classe ~ ., data=model_training_data, method="class")
+```
+
+### Cross validation
+```{r random forest crossvalidation, echo=FALSE}
+library("e1071")
+prediction_crossval<-predict(random_forest_model, newdata=crossval_training_data)
+confusionMatrix(prediction_crossval, crossval_training_data$classe)
+```
+After the model fitting the total accuracy on the cross validation set is 0.9951, being the specifity in between the range [0.9903, 1.0000], while the specifity goes from [0.9979,1.0000], with these results and applying to the proposed test set the results are the following:
+
+### Prediction
+```{r random forest prediction}
+prediction_test_data <- predict(random_forest_model, newdata=clean_test_data)
+
+prediction_test_data 
+```
+
+
+
